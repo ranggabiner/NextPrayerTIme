@@ -3,14 +3,20 @@ import SwiftUI
 struct ContentView: View {
     @StateObject private var locationManager = NextPrayerTimeLocationManager()
     @State private var prayerTime: String = "Loading..."
+    @State private var nextPrayerName: String = "Loading..."
     @State private var timer: Timer? = nil
     
     var body: some View {
         VStack(spacing: 20) {
+            Text(nextPrayerName)
+                .fontWeight(.semibold)
+                .font(.system(size: 34))
+                .foregroundStyle(Color(hex: 0xA2FC06))
             Text(prayerTime)
                 .fontWeight(.semibold)
                 .font(.system(size: 34))
-                    .foregroundStyle(Color(hex: 0xA2FC06))        }
+                .foregroundStyle(Color(hex: 0xA2FC06))
+        }
         .onAppear {
             startTimer()
         }
@@ -38,13 +44,16 @@ struct ContentView: View {
         }
         
         if let prayerTimes = loadPrayerTimes(for: Date(), province: locationManager.province, city: locationManager.city) {
-            prayerTime = getNextPrayerTime(currentTime: Date(), prayerTimes: prayerTimes)
+            let nextPrayerInfo = getNextPrayerInfo(currentTime: Date(), prayerTimes: prayerTimes)
+            prayerTime = nextPrayerInfo.time
+            nextPrayerName = nextPrayerInfo.name
         } else {
             prayerTime = "Error loading prayer times"
+            nextPrayerName = "Error"
         }
     }
     
-    private func getNextPrayerTime(currentTime: Date, prayerTimes: PrayerTimes) -> String {
+    private func getNextPrayerInfo(currentTime: Date, prayerTimes: PrayerTimes) -> (name: String, time: String) {
         let calendar = Calendar.current
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "HH:mm"
@@ -59,27 +68,28 @@ struct ContentView: View {
         }
         
         let prayerTimesList = [
-            prayerTimes.fajr,
-            prayerTimes.sunrise,
-            prayerTimes.dhuhr,
-            prayerTimes.asr,
-            prayerTimes.maghrib,
-            prayerTimes.isha
+            (name: "Fajr", time: prayerTimes.fajr),
+            (name: "Sunrise", time: prayerTimes.sunrise),
+            (name: "Dhuhr", time: prayerTimes.dhuhr),
+            (name: "Asr", time: prayerTimes.asr),
+            (name: "Maghrib", time: prayerTimes.maghrib),
+            (name: "Isha", time: prayerTimes.isha)
         ]
         
-        for prayerTime in prayerTimesList {
-            if let components = timeToComponents(prayerTime), let date = createDate(components: components), date > currentTime {
-                return dateFormatter.string(from: date)
+        for prayer in prayerTimesList {
+            if let components = timeToComponents(prayer.time), let date = createDate(components: components), date > currentTime {
+                return (name: prayer.name, time: dateFormatter.string(from: date))
             }
         }
         
         // If the current time is past Isha, return the time for Fajr of the next day
         if let fajrComponents = timeToComponents(prayerTimes.fajr), let fajrDate = createDate(components: fajrComponents) {
             let nextDayFajrDate = calendar.date(byAdding: .day, value: 1, to: fajrDate)
-            return nextDayFajrDate != nil ? dateFormatter.string(from: nextDayFajrDate!) : "Error"
+            let nextPrayerTime = nextDayFajrDate != nil ? dateFormatter.string(from: nextDayFajrDate!) : "Error"
+            return (name: "Fajr", time: nextPrayerTime)
         }
         
-        return "Error"
+        return (name: "Error", time: "Error")
     }
 }
 
